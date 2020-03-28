@@ -22,15 +22,15 @@ uint8_t tx_array[] = {0x7E, 0x00, 0x13, 0x10, 0x00,
                       0xFF, 0xFE, 0x00, 0x00, 0x11,
                       0x99, 0x88, 0x77, 0x66, 0xB6};  // 23 bytes
 
-////////////////////////////////////////
-//Setup loop  
+//////////////////////////////////////////////////////////////////////
+ 
 void setup() 
 {  
   delay(3000);
   
   softSerial.begin(9600);
   Serial.begin(9600);
-  Serial.println("**** SERIAL ****: xbee_api_sleep_txrx_usb_coordinator");
+  Serial.println("**** SERIAL ****");
   softSerial.print("softSerial: xbee_api_sleep_txrx_usb_coordinator : ");
   softSerial.println(version);
   
@@ -38,8 +38,8 @@ void setup()
 }  
 
   
-////////////////////////////////////////
-//Main loop
+//////////////////////////////////////////////////////////////////////
+
 void loop() 
 { 
 
@@ -56,7 +56,6 @@ void loop()
   
   if(rx_array[0] == 0x7E)
   {
-    softSerial.println("rx-d");
     for(int i = 0; i < 21; i++)
     {
       softSerial.print(rx_array[i],HEX);
@@ -87,8 +86,8 @@ void loop()
 
 }
 
-////////////////////////////////////////
-//Get the check sum of recieved message
+//////////////////////////////////////////////////////////////////////
+
 int8_t getTxCheckSum(){
   long sum = 0;
   for(int i = 3; i < (sizeof(tx_array) - 1); i++){
