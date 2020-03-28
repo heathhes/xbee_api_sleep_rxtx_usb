@@ -8,41 +8,32 @@
 #include "LowPower.h"
 #include "setup.h"
 #include "SoftwareSerial.h"
-
+#include "version.h"
 #define LED_PIN   13
 #define MSG_SIZE  21
-
-
-//-----address of destination-----
-                            //for broadcast
-int8_t ADDR_B1 = 0x00;      //0x00
-int8_t ADDR_B2 = 0x13;      //0x00
-int8_t ADDR_B3 = 0xA2;      //0x00
-int8_t ADDR_B4 = 0x00;      //0x00
-int8_t ADDR_B5 = 0x41;      //0x00
-int8_t ADDR_B6 = 0x4E;      //0x00
-int8_t ADDR_B7 = 0x65;      //0xFF
-int8_t ADDR_B8 = 0x93;      //0xFF
-
 
 SoftwareSerial softSerial(7,8);  //(rx,tx)
 
 uint8_t rx_array[21] = {};
-uint8_t tx_array[] = {0x7E,0x00,0x13,0x10,0x00,
-                    ADDR_B1,ADDR_B2,ADDR_B3,
-                    ADDR_B4,ADDR_B5,ADDR_B6,
-                    ADDR_B7,ADDR_B8,
-                    0xFF,0xFE,0x00,0x00,0x11,
-                    0x99,0x88,0x77,0x66,0xB6};  // 23 bytes
+uint8_t tx_array[] = {0x7E, 0x00, 0x13, 0x10, 0x00,
+                      ADDR_B1, ADDR_B2, ADDR_B3,
+                      ADDR_B4, ADDR_B5, ADDR_B6,
+                      ADDR_B7, ADDR_B8,
+                      0xFF, 0xFE, 0x00, 0x00, 0x11,
+                      0x99, 0x88, 0x77, 0x66, 0xB6};  // 23 bytes
 
 ////////////////////////////////////////
 //Setup loop  
-void setup() {  
+void setup() 
+{  
   delay(3000);
+  
   softSerial.begin(9600);
   Serial.begin(9600);
-  Serial.println("SERIAL: xbee_api_sleep_txrx_usb_coordinator");
-  softSerial.println("softSerial: xbee_api_sleep_txrx_usb_coordinator");
+  Serial.println("**** SERIAL ****: xbee_api_sleep_txrx_usb_coordinator");
+  softSerial.print("softSerial: xbee_api_sleep_txrx_usb_coordinator : ");
+  softSerial.println(version);
+  
   pinMode(LED_PIN, OUTPUT); 
 }  
 
@@ -65,6 +56,7 @@ void loop()
   
   if(rx_array[0] == 0x7E)
   {
+    softSerial.println("rx-d");
     for(int i = 0; i < 21; i++)
     {
       softSerial.print(rx_array[i],HEX);
