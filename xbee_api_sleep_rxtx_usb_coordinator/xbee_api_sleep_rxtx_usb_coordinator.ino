@@ -42,14 +42,28 @@ void setup()
 
 void loop() 
 { 
-
+  delay(100);
   bool respond = false;
+  int i = 0;
   while(Serial.available())
   {
+    
     for(int i = 0; i < 21; i++)
     {
       rx_array[i] = Serial.read();    
     }
+    
+    
+//    uint8_t byte = Serial.read();
+//    if(byte == 0x7E)
+//    {
+//      
+//    }
+//    if(i >= 21)
+//    {
+//      break;
+//    }
+//    i++;
   }
   delay(50); // absolutely must have 50ms+
 
@@ -65,15 +79,21 @@ void loop()
     respond = true;
   }
 
+  if(rx_array[0] == 0x7E)
+  {
+    respond = true;
+  }
+  
   // tx data back to xbee
   if(respond)
   {
     //-----create checksum byte for transmission-----
     int8_t check_sum = getTxCheckSum();
     tx_array[22] = check_sum;
-    delay(500);
+    softSerial.println("tx-ing");
+    delay(50);
     Serial.write(tx_array, 23);
-    Serial.flush();
+    //Serial.flush();
     delay(50);
     respond = false;
   }
