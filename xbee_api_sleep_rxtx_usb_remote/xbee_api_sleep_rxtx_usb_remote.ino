@@ -2,12 +2,9 @@
 #include "LowPower.h"
 #include "setup.h"
 #include "SimpleTimer.h"
-#include "XBee_lib.h"
 
 #define LED_PIN   13
 #define WAKE_PIN  3
-
-<<<<<<< Updated upstream
 
 //-----address of destination-----
                             //for broadcast
@@ -19,11 +16,6 @@ int8_t ADDR_B5 = 0x41;      //0x00
 int8_t ADDR_B6 = 0x25;      //0x00
 int8_t ADDR_B7 = 0xA4;      //0xFF
 int8_t ADDR_B8 = 0x79;      //0xFF
-
-=======
-XBee_lib m_xbee;
-SimpleTimer m_send_timer;
->>>>>>> Stashed changes
 
 SoftwareSerial softSerial(7,8);  //(rx,tx)
 
