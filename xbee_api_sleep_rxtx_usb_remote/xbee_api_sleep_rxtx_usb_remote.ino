@@ -6,17 +6,6 @@
 #define LED_PIN   13
 #define WAKE_PIN  3
 
-//-----address of destination-----
-                            //for broadcast
-int8_t ADDR_B1 = 0x00;      //0x00
-int8_t ADDR_B2 = 0x13;      //0x00
-int8_t ADDR_B3 = 0xA2;      //0x00
-int8_t ADDR_B4 = 0x00;      //0x00
-int8_t ADDR_B5 = 0x41;      //0x00
-int8_t ADDR_B6 = 0x25;      //0x00
-int8_t ADDR_B7 = 0xA4;      //0xFF
-int8_t ADDR_B8 = 0x79;      //0xFF
-
 SoftwareSerial softSerial(7,8);  //(rx,tx)
 
 bool m_sleep_now = true;

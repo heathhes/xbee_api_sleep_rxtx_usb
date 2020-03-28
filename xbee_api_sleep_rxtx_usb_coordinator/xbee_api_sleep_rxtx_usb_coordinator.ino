@@ -12,19 +12,6 @@
 #define LED_PIN   13
 #define MSG_SIZE  21
 
-
-//-----address of destination-----
-                            //for broadcast
-int8_t ADDR_B1 = 0x00;      //0x00
-int8_t ADDR_B2 = 0x13;      //0x00
-int8_t ADDR_B3 = 0xA2;      //0x00
-int8_t ADDR_B4 = 0x00;      //0x00
-int8_t ADDR_B5 = 0x41;      //0x00
-int8_t ADDR_B6 = 0x4E;      //0x00
-int8_t ADDR_B7 = 0x65;      //0xFF
-int8_t ADDR_B8 = 0x93;      //0xFF
-
-
 SoftwareSerial softSerial(7,8);  //(rx,tx)
 
 uint8_t rx_array[21] = {};
