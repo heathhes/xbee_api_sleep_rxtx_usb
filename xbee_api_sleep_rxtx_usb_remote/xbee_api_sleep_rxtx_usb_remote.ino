@@ -12,12 +12,12 @@ bool m_sleep_now = true;
 bool m_tx_now = true;
 uint8_t m_tx_count = 0;
 uint8_t rx_array[21] = {};
-uint8_t tx_array[] = {0x7E,0x00,0x13,0x10,0x00,
-                   ADDR_B1,ADDR_B2,ADDR_B3,
-                   ADDR_B4,ADDR_B5,ADDR_B6,
-                   ADDR_B7,ADDR_B8,
-                      0xFF,0xFE,0x00,0x00,0x11,
-                      0x22,0x23,0x24,0x25,0xD6};
+uint8_t tx_array[] = {0x7E, 0x00, 0x13, 0x10, 0x00,
+                      ADDR_B1, ADDR_B2, ADDR_B3,
+                      ADDR_B4, ADDR_B5, ADDR_B6,
+                      ADDR_B7, ADDR_B8,
+                      0xFF, 0xFE, 0x00, 0x00, 0x11,
+                      0x22, 0x23, 0x24, 0x25, 0xD6};
                       
 ////////////////////////////////////////////////////////////
 

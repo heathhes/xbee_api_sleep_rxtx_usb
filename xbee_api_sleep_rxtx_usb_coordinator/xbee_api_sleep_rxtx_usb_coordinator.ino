@@ -15,12 +15,12 @@
 SoftwareSerial softSerial(7,8);  //(rx,tx)
 
 uint8_t rx_array[21] = {};
-uint8_t tx_array[] = {0x7E,0x00,0x13,0x10,0x00,
-                    ADDR_B1,ADDR_B2,ADDR_B3,
-                    ADDR_B4,ADDR_B5,ADDR_B6,
-                    ADDR_B7,ADDR_B8,
-                    0xFF,0xFE,0x00,0x00,0x11,
-                    0x99,0x88,0x77,0x66,0xB6};  // 23 bytes
+uint8_t tx_array[] = {0x7E, 0x00, 0x13, 0x10 ,0x00,
+                      ADDR_B1, ADDR_B2, ADDR_B3,
+                      ADDR_B4, ADDR_B5, ADDR_B6,
+                      ADDR_B7, ADDR_B8,
+                      0xFF, 0xFE, 0x00, 0x00, 0x11,
+                      0x99, 0x88, 0x77, 0x66, 0xB6};  // 23 bytes
 
 ////////////////////////////////////////
 //Setup loop  
