@@ -6,6 +6,8 @@
 #include "millisDelay.h"
 #include "version.h"
 
+#define RX_MSG_SIZE  21 // payload 5
+#define TX_MSG_SIZE  23 // payload 5
 #define LED_PIN   13
 #define WAKE_PIN  3
 
@@ -37,7 +39,6 @@ void wakeUp()
   // called after interrupt (no delays or millis)
   // reset variables after wakeup
   m_tx_now = true;
-  m_tx_count = 0;
   m_sleep_now = false;
 }  
 
@@ -52,7 +53,9 @@ void setup()
   softSerial.begin(9600);    
   softSerial.print("xbee_api_sleep_txrx_usb_remote : ");
   softSerial.println(version);
-  
+
+
+  // pin definitions
   pinMode(WAKE_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
 
@@ -93,7 +96,7 @@ void loop()
   if(m_system_timer.justFinished())
   {
     m_system_timer.repeat();
-    mainFunction();
+    handle_wireless();
   }
   
   // no successful response, sleep anyway
@@ -107,25 +110,25 @@ void loop()
 
 //////////////////////////////////////////////////////////////////////
 
-void mainFunction()
+void handle_wireless()
 { 
-  softSerial.print("millis: ");
-  softSerial.println(millis());
   // get response from coordinator
-  while(Serial.available())
+  if(Serial.available())
   {
     for(int i = 0; i < 21; i++)
     {
       rx_array[i] = Serial.read();    
     }
-  }
-  
+  } // delay required?
+
+
+  // insert payloads
+  tx_array[17] = m_tx_count;
 
   
   // transmit data, timer has timed out
   if(m_tx_now &&  m_send_timer.justFinished())
   {
-
     // get checksum for transmission
     tx_array[22] = get_checksum(tx_array, sizeof(tx_array));
     transmit_data(tx_array, sizeof(tx_array));
@@ -134,11 +137,13 @@ void mainFunction()
     m_send_timer.repeat();
   }
 
+
   // print response array if new data
   if(rx_array[0] == 0x7E)
   {
     print_array(rx_array, sizeof(rx_array));
   }
+
 
   // validate response
   uint8_t rx_check = get_checksum(rx_array, sizeof(rx_array));
@@ -151,6 +156,7 @@ void mainFunction()
     m_sleep_now = true; 
   }
 
+
   // clear the rx array
   clear_array(rx_array, sizeof(rx_array));
 
@@ -158,14 +164,14 @@ void mainFunction()
 
 //////////////////////////////////////////////////////////////////////
 
-int8_t get_checksum(uint8_t array[], uint8_t len)
+uint8_t get_checksum(uint8_t array[], uint8_t len)
 {
   long sum = 0;
   for(int i = 3; i < (len - 1); i++)
   {
     sum += array[i]; 
   } 
-  int8_t check_sum = 0xFF - (sum & 0xFF);
+  uint8_t check_sum = 0xFF - (sum & 0xFF);
   
   return check_sum; 
 }
@@ -200,7 +206,6 @@ void transmit_data(uint8_t array[], uint8_t len)
   softSerial.println("tx-ing");
   delay(50);
   Serial.write(array, len);
-  //Serial.flush();
   delay(50);
   m_tx_count++;
 }

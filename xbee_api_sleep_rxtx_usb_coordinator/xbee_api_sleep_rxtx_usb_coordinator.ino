@@ -8,12 +8,18 @@
 #include "LowPower.h"
 #include "setup.h"
 #include "SoftwareSerial.h"
+#include "millisDelay.h"
 #include "version.h"
+
+#define RX_MSG_SIZE  21 // payload 5
+#define TX_MSG_SIZE  23 // payload 5
 #define LED_PIN   13
-#define MSG_SIZE  21
+
+millisDelay m_system_timer;
 
 SoftwareSerial softSerial(7,8);  //(rx,tx)
 
+uint8_t m_tx_count = 0;
 uint8_t rx_array[21] = {};
 uint8_t tx_array[] = {0x7E, 0x00, 0x13, 0x10, 0x00,
                       ADDR_B1, ADDR_B2, ADDR_B3,
@@ -35,85 +41,112 @@ void setup()
   softSerial.println(version);
   
   pinMode(LED_PIN, OUTPUT); 
+
+  // delay for handling wireless interface
+  m_system_timer.start(200);
+  
 }  
 
-  
 //////////////////////////////////////////////////////////////////////
 
 void loop() 
 { 
-  delay(100);
-  bool respond = false;
-  int i = 0;
-  while(Serial.available())
+
+  if(m_system_timer.justFinished())
   {
-    
+    m_system_timer.repeat();
+    handle_wireless();
+  }
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void handle_wireless()
+{  
+  bool respond = false;
+
+  if(Serial.available())
+  {  
     for(int i = 0; i < 21; i++)
     {
       rx_array[i] = Serial.read();    
     }
-    
-    
-//    uint8_t byte = Serial.read();
-//    if(byte == 0x7E)
-//    {
-//      
-//    }
-//    if(i >= 21)
-//    {
-//      break;
-//    }
-//    i++;
-  }
-  delay(50); // absolutely must have 50ms+
-
+  } // delay required?
   
   if(rx_array[0] == 0x7E)
   {
-    for(int i = 0; i < 21; i++)
-    {
-      softSerial.print(rx_array[i],HEX);
-      softSerial.print(", ");
-    } 
-    softSerial.println();
-    respond = true;
+    print_array(rx_array, sizeof(rx_array));
   }
 
   if(rx_array[0] == 0x7E)
   {
     respond = true;
   }
+
+
+  // insert payloads
+  tx_array[17] = m_tx_count;  
+
   
   // tx data back to xbee
   if(respond)
   {
-    //-----create checksum byte for transmission-----
-    int8_t check_sum = getTxCheckSum();
-    tx_array[22] = check_sum;
-    softSerial.println("tx-ing");
-    delay(50);
-    Serial.write(tx_array, 23);
-    //Serial.flush();
-    delay(50);
+    // get checksum
+    tx_array[22] = get_checksum(tx_array,sizeof(tx_array));
+    transmit_data(tx_array, sizeof(tx_array));
     respond = false;
   }
 
-  
-  for(int i = 0; i < 21; i++)
-  {
-    rx_array[i] = 0;
-  }
+
+  // clear the rx array
+  clear_array(rx_array, sizeof(rx_array));
 
 }
 
 //////////////////////////////////////////////////////////////////////
 
-int8_t getTxCheckSum(){
+uint8_t get_checksum(uint8_t array[], uint8_t len)
+{
   long sum = 0;
-  for(int i = 3; i < (sizeof(tx_array) - 1); i++){
-    sum += tx_array[i]; 
+  for(int i = 3; i < (len - 1); i++)
+  {
+    sum += array[i]; 
   } 
-  int8_t check_sum = 0xFF - (sum & 0xFF);
+  uint8_t check_sum = 0xFF - (sum & 0xFF);
+  
   return check_sum; 
 }
- 
+
+//////////////////////////////////////////////////////////////////////
+
+void clear_array(uint8_t array[], uint8_t len)
+{
+  // clear the rx array
+  for(int i = 0; i < len; i++)
+  {
+    array[i] = 0;
+  }
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void print_array(uint8_t array[], uint8_t len)
+{
+  for(int i = 0; i < len; i++)
+  {
+    softSerial.print(array[i],HEX);
+    softSerial.print(", ");
+  } 
+  softSerial.println();
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void transmit_data(uint8_t array[], uint8_t len)
+{
+  softSerial.println("tx-ing");
+  delay(50);
+  Serial.write(array, len);
+  delay(50);
+  m_tx_count++;
+}
