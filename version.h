@@ -1,1 +1,1 @@
-extern char version[5] = "0.0.1";
+extern char version[] = "v0.0.1";
