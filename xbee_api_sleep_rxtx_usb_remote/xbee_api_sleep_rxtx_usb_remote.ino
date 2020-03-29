@@ -2,7 +2,6 @@
 #include "LowPower.h"
 #include "setup.h"
 #include "SimpleTimer.h"
-#include "XBee_lib.h"
 #include "millisDelay.h"
 #include "version.h"
 
@@ -11,7 +10,7 @@
 #define LED_PIN   13
 #define WAKE_PIN  3
 
-XBee_lib m_xbee;
+
 millisDelay m_send_timer;
 millisDelay m_sleep_timer;
 millisDelay m_system_timer;
@@ -119,7 +118,7 @@ void handle_wireless()
     {
       rx_array[i] = Serial.read();    
     }
-  } // delay required?
+  }
 
 
   // insert payloads
