@@ -1,15 +1,16 @@
 #include <SoftwareSerial.h>
 #include "LowPower.h"
 #include "setup.h"
-#include "SimpleTimer.h"
 #include "millisDelay.h"
 #include "version.h"
+#include "XBee_lib.h"
 
 #define RX_MSG_SIZE  21 // payload 5
 #define TX_MSG_SIZE  23 // payload 5
 #define LED_PIN   13
 #define WAKE_PIN  3
 
+XBee_lib m_xbee(3,1);
 
 millisDelay m_send_timer;
 millisDelay m_sleep_timer;
@@ -22,19 +23,16 @@ bool m_tx_now = true;
 uint8_t m_tx_count = 0;
 uint8_t rx_array[21] = {};
 uint8_t tx_array[] = {0x7E, 0x00, 0x13, 0x10, 0x00,
-                    ADDR_B1, ADDR_B2, ADDR_B3,
-                    ADDR_B4, ADDR_B5, ADDR_B6,
-                    ADDR_B7, ADDR_B8,
-                    0xFF, 0xFE, 0x00, 0x00, 0x11,
-                    0x22, 0x23, 0x24, 0x25, 0xD6};
+                      ADDR_B1, ADDR_B2, ADDR_B3,
+                      ADDR_B4, ADDR_B5, ADDR_B6,
+                      ADDR_B7, ADDR_B8,
+                      0xFF, 0xFE, 0x00, 0x00, 0x11,
+                      0x22, 0x23, 0x24, 0x25, 0xD6};
                       
 //////////////////////////////////////////////////////////////////////
 
 void wakeUp() 
 {  
-  // Disable external pin interrupt on wake up pin.
-  // detachInterrupt(digitalPinToInterrupt(WAKE_PIN));
-  
   // called after interrupt (no delays or millis)
   // reset variables after wakeup
   m_tx_now = true;
@@ -45,14 +43,13 @@ void wakeUp()
  
 void setup() 
 { 
+  // allow time to switch to xbee mode on pcb
   delay(3000);
-  
-  Serial.begin(9600);   
-  Serial.println("**** SERIAL ****");
+
+  Serial.begin(19200);
   softSerial.begin(9600);    
   softSerial.print("xbee_api_sleep_txrx_usb_remote : ");
   softSerial.println(version);
-
 
   // pin definitions
   pinMode(WAKE_PIN, INPUT);
@@ -72,7 +69,7 @@ void setup()
   
 void loop() 
 { 
-
+  // put micro to sleep
   if(m_sleep_now)
   {
     digitalWrite(LED_PIN, LOW);
@@ -91,7 +88,7 @@ void loop()
     m_sleep_timer.restart();
   }
 
-  // slow loop system loop
+  // after waking up, slow the system loop
   if(m_system_timer.justFinished())
   {
     m_system_timer.repeat();
@@ -129,8 +126,9 @@ void handle_wireless()
   if(m_tx_now &&  m_send_timer.justFinished())
   {
     // get checksum for transmission
-    tx_array[22] = get_checksum(tx_array, sizeof(tx_array));
-    transmit_data(tx_array, sizeof(tx_array));
+    tx_array[22] = m_xbee.Get_checksum(tx_array, sizeof(tx_array));
+
+    m_tx_count = m_xbee.Transmit_data(tx_array, sizeof(tx_array));
 
     // reset timer
     m_send_timer.repeat();
@@ -145,7 +143,8 @@ void handle_wireless()
 
 
   // validate response
-  uint8_t rx_check = get_checksum(rx_array, sizeof(rx_array));
+  uint8_t rx_check = m_xbee.Get_checksum(rx_array, sizeof(rx_array));
+
   if((rx_array[0] == 0x7E) && (rx_array[20] == rx_check))
   {
      softSerial.println("response rx-d, going to sleep");
@@ -157,33 +156,8 @@ void handle_wireless()
 
 
   // clear the rx array
-  clear_array(rx_array, sizeof(rx_array));
+  m_xbee.Clear_array(rx_array, sizeof(rx_array));
 
-}
-
-//////////////////////////////////////////////////////////////////////
-
-uint8_t get_checksum(uint8_t array[], uint8_t len)
-{
-  long sum = 0;
-  for(int i = 3; i < (len - 1); i++)
-  {
-    sum += array[i]; 
-  } 
-  uint8_t check_sum = 0xFF - (sum & 0xFF);
-  
-  return check_sum; 
-}
-
-//////////////////////////////////////////////////////////////////////
-
-void clear_array(uint8_t array[], uint8_t len)
-{
-  // clear the rx array
-  for(int i = 0; i < len; i++)
-  {
-    array[i] = 0;
-  }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -196,15 +170,4 @@ void print_array(uint8_t array[], uint8_t len)
     softSerial.print(", ");
   } 
   softSerial.println();
-}
-
-//////////////////////////////////////////////////////////////////////
-
-void transmit_data(uint8_t array[], uint8_t len)
-{
-  softSerial.println("tx-ing");
-  delay(50);
-  Serial.write(array, len);
-  delay(50);
-  m_tx_count++;
 }

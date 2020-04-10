@@ -1,15 +1,9 @@
-
-/*This code transmits a data payload through the xbee
-  in API mode. It sleeps inbetween transmissions and is 
-  wakened by the xbee sleep-off output on an interrupt pin
-  
-*/
-
 #include "LowPower.h"
 #include "setup.h"
 #include "SoftwareSerial.h"
 #include "millisDelay.h"
 #include "version.h"
+#include "XBee_lib.h"
 
 #define RX_MSG_SIZE  21 // payload 5
 #define TX_MSG_SIZE  23 // payload 5
@@ -35,7 +29,7 @@ void setup()
   delay(3000);
   
   softSerial.begin(9600);
-  Serial.begin(9600);
+  Serial.begin(19200);
   Serial.println("**** SERIAL ****");
   softSerial.print("softSerial: xbee_api_sleep_txrx_usb_coordinator : ");
   softSerial.println(version);
