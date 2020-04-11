@@ -1,10 +1,10 @@
 #include <SoftwareSerial.h>
 #include "LowPower.h"
-#include "setup.h"
+//#include "setup_remote.h"
 #include "millisDelay.h"
 #include "version.h"
 #include "Xbee_lib.h"
-
+#include "Xbee_lib_defs.h"
 
 #define RX_MSG_SIZE  21 // payload 5
 #define TX_MSG_SIZE  23 // payload 5
@@ -109,14 +109,42 @@ void loop()
 
 void handle_wireless()
 { 
-  // get response from coordinator
-  if(Serial.available())
-  {
-    for(int i = 0; i < 21; i++)
-    {
-      rx_array[i] = Serial.read();    
-    }
-  }
+   bool rx_status = false;
+   bool new_rx = false;
+   uint8_t x = 0;
+   uint8_t rx_array[50] = {};
+
+   while(Serial.available())
+   {
+     rx_array[x] = Serial.read();
+     x++;
+     new_rx = true;
+   } // delay required?
+
+   uint8_t rx_msg_array[21] = {};
+
+   if(new_rx)
+   {
+     rx_status = m_xbee.Process_received(rx_array,
+                                         sizeof(rx_array),
+                                         rx_msg_array,
+                                         sizeof(rx_msg_array));
+     if(rx_status)
+     {
+       print_array(rx_msg_array, sizeof(rx_msg_array));
+       softSerial.println("Rx'd valid frame, going to sleep");
+       m_sleep_now = true;
+     }
+     else
+     {
+       softSerial.print("Received invalid frame: ");
+       print_array(rx_msg_array, sizeof(rx_msg_array));
+     }
+   }
+
+
+
+
 
 
   // insert payloads
@@ -131,27 +159,6 @@ void handle_wireless()
     // reset timer
     m_send_timer.repeat();
   }
-
-
-  // print response array if new data
-  if(rx_array[0] == 0x7E)
-  {
-    print_array(rx_array, sizeof(rx_array));
-  }
-
-
-  // validate response
-  uint8_t rx_check = m_xbee.Get_checksum(rx_array, sizeof(rx_array));
-
-  if((rx_array[0] == 0x7E) && (rx_array[20] == rx_check))
-  {
-     softSerial.println("response rx-d, going to sleep");
-     
-    // received response, sleep 
-    // do_stuff_with_response_function();  
-    m_sleep_now = true; 
-  }
-
 
   // clear the rx array
   m_xbee.Clear_array(rx_array, sizeof(rx_array));
@@ -169,3 +176,4 @@ void print_array(uint8_t array[], uint8_t len)
   } 
   softSerial.println();
 }
+

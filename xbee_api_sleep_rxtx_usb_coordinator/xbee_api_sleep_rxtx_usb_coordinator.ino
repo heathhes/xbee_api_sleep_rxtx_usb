@@ -1,22 +1,19 @@
 #include "LowPower.h"
-#include "setup.h"
+#include "setup_coordinator.h".h"
 #include "SoftwareSerial.h"
 #include "millisDelay.h"
 #include "version.h"
 #include "Xbee_lib.h"
+#include "Xbee_lib_defs.h"
 
 #define RX_MSG_SIZE  21 // payload 5
 #define TX_MSG_SIZE  23 // payload 5
 #define LED_PIN   13
 
+SoftwareSerial ss(7,8);  //(rx,tx)
 Xbee_lib m_xbee(ID::XBEE_1); // id
-
 millisDelay m_system_timer;
-
-SoftwareSerial softSerial(7,8);  //(rx,tx)
-
 uint8_t m_tx_count = 0;
-uint8_t rx_array[21] = {};
 
 uint8_t tx_array[] = {0x7E, 0x00, 0x13, 0x10, 0x00,
                       ADDR_B1, ADDR_B2, ADDR_B3,
@@ -31,11 +28,11 @@ void setup()
 {  
   delay(3000);
   
-  softSerial.begin(9600);
+  ss.begin(9600);
   Serial.begin(19200);
   Serial.println("**** SERIAL ****");
-  softSerial.print("softSerial: xbee_api_sleep_txrx_usb_coordinator : ");
-  softSerial.println(version);
+  ss.print("ss: xbee_api_sleep_txrx_usb_coordinator : ");
+  ss.println(version);
   
   pinMode(LED_PIN, OUTPUT); 
 
@@ -60,25 +57,38 @@ void loop()
 void handle_wireless()
 {  
   bool respond = false;
+  bool new_rx = false;
+  uint8_t rx_array[50] = {};
+  uint8_t rx_msg_array[21] = {};
 
-  if(Serial.available())
-  {  
-    for(int i = 0; i < 21; i++)
-    {
-      rx_array[i] = Serial.read();    
-    }
+
+
+  while(Serial.available())
+  {
+    static uint8_t x = 0;
+    rx_array[x] = Serial.read();
+    x++;
+    new_rx = true;
   } // delay required?
 
-  if(rx_array[0] == 0x7E)
+  if(new_rx)
   {
-    print_array(rx_array, sizeof(rx_array));
+    bool rx_status = m_xbee.Process_received(rx_array,
+                                             sizeof(rx_array),
+                                             rx_msg_array,
+                                             sizeof(rx_msg_array));
+    if(rx_status)
+    {
+      print_array(rx_msg_array, sizeof(rx_msg_array));
+      ss.println("Rx'd valid frame, responding");
+      respond = true;
+    }
+    else
+    {
+      ss.print("Received invalid frame: ");
+      print_array(rx_msg_array, sizeof(rx_msg_array));
+    }
   }
-
-  if(rx_array[0] == 0x7E)
-  {
-    respond = true;
-  }
-
 
   // insert payloads
   tx_array[17] = m_tx_count;  
@@ -94,7 +104,6 @@ void handle_wireless()
 
   // clear the rx array
   m_xbee.Clear_array(rx_array, sizeof(rx_array));
-
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -103,9 +112,23 @@ void print_array(uint8_t array[], uint8_t len)
 {
   for(int i = 0; i < len; i++)
   {
-    softSerial.print(array[i],HEX);
-    softSerial.print(", ");
+    ss.print(array[i],HEX);
+    ss.print(", ");
   } 
-  softSerial.println();
+  ss.println();
 }
 
+// check to see if any received messages were missed
+//      static uint8_t m_last_rx_count = 0;
+//    if((m_last_rx_count + 1) == rx_msg_array[15])
+//    {
+//      m_last_rx_count = rx_msg_array[15];
+//    }
+//    else
+//    {
+//      ss.print("MISSED RX MESSAGE: local count | received count : ");
+//      ss.print(m_last_rx_count);
+//      ss.print(" | ");
+//      ss.println(rx_msg_array[15]);
+//      m_last_rx_count = rx_msg_array[15];
+//    }

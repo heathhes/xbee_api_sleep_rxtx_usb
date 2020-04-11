@@ -17,12 +17,19 @@
 
 enum ID
 {
+  XBEE_X = 0,
   XBEE_1 = 1,
   XBEE_2 = 2,
   XBEE_3 = 3,
   XBEE_4 = 4,
   XBEE_5 = 5,
   XBEE_6 = 6
+};
+
+enum RX_STATUS
+{
+  SUCCESS = 0,
+  FAILED = 1
 };
 
 // all addresses  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF // broadcast
