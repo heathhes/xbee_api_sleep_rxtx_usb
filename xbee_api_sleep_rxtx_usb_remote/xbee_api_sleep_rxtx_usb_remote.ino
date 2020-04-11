@@ -3,14 +3,14 @@
 #include "setup.h"
 #include "millisDelay.h"
 #include "version.h"
-#include "XBee_lib.h"
+#include "Xbee_lib.h"
 
 #define RX_MSG_SIZE  21 // payload 5
 #define TX_MSG_SIZE  23 // payload 5
 #define LED_PIN   13
 #define WAKE_PIN  3
 
-XBee_lib m_xbee(3,1);
+Xbee_lib m_xbee(ID::XBEE_3); // id
 
 millisDelay m_send_timer;
 millisDelay m_sleep_timer;
@@ -125,10 +125,7 @@ void handle_wireless()
   // transmit data, timer has timed out
   if(m_tx_now &&  m_send_timer.justFinished())
   {
-    // get checksum for transmission
-    tx_array[22] = m_xbee.Get_checksum(tx_array, sizeof(tx_array));
-
-    m_tx_count = m_xbee.Transmit_data(tx_array, sizeof(tx_array));
+    m_tx_count = m_xbee.Transmit_data(tx_array, sizeof(tx_array), ID::XBEE_1);
 
     // reset timer
     m_send_timer.repeat();
