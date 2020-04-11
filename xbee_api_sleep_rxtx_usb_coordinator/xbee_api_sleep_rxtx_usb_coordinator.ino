@@ -1,19 +1,15 @@
-
-/*This code transmits a data payload through the xbee
-  in API mode. It sleeps inbetween transmissions and is 
-  wakened by the xbee sleep-off output on an interrupt pin
-  
-*/
-
 #include "LowPower.h"
 #include "setup.h"
 #include "SoftwareSerial.h"
 #include "millisDelay.h"
 #include "version.h"
+#include "Xbee_lib.h"
 
 #define RX_MSG_SIZE  21 // payload 5
 #define TX_MSG_SIZE  23 // payload 5
 #define LED_PIN   13
+
+Xbee_lib m_xbee(ID::XBEE_1); // id
 
 millisDelay m_system_timer;
 
@@ -36,7 +32,7 @@ void setup()
   delay(3000);
   
   softSerial.begin(9600);
-  Serial.begin(9600);
+  Serial.begin(19200);
   Serial.println("**** SERIAL ****");
   softSerial.print("softSerial: xbee_api_sleep_txrx_usb_coordinator : ");
   softSerial.println(version);
@@ -52,7 +48,6 @@ void setup()
 
 void loop() 
 { 
-
   if(m_system_timer.justFinished())
   {
     m_system_timer.repeat();
@@ -73,7 +68,7 @@ void handle_wireless()
       rx_array[i] = Serial.read();    
     }
   } // delay required?
-  
+
   if(rx_array[0] == 0x7E)
   {
     print_array(rx_array, sizeof(rx_array));
@@ -92,41 +87,14 @@ void handle_wireless()
   // tx data back to xbee
   if(respond)
   {
-    // get checksum
-    tx_array[22] = get_checksum(tx_array,sizeof(tx_array));
-    transmit_data(tx_array, sizeof(tx_array));
+    m_tx_count = m_xbee.Transmit_data(tx_array, sizeof(tx_array), ID::XBEE_3);
     respond = false;
   }
 
 
   // clear the rx array
-  clear_array(rx_array, sizeof(rx_array));
+  m_xbee.Clear_array(rx_array, sizeof(rx_array));
 
-}
-
-//////////////////////////////////////////////////////////////////////
-
-uint8_t get_checksum(uint8_t array[], uint8_t len)
-{
-  long sum = 0;
-  for(int i = 3; i < (len - 1); i++)
-  {
-    sum += array[i]; 
-  } 
-  uint8_t check_sum = 0xFF - (sum & 0xFF);
-  
-  return check_sum; 
-}
-
-//////////////////////////////////////////////////////////////////////
-
-void clear_array(uint8_t array[], uint8_t len)
-{
-  // clear the rx array
-  for(int i = 0; i < len; i++)
-  {
-    array[i] = 0;
-  }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -141,13 +109,3 @@ void print_array(uint8_t array[], uint8_t len)
   softSerial.println();
 }
 
-//////////////////////////////////////////////////////////////////////
-
-void transmit_data(uint8_t array[], uint8_t len)
-{
-  softSerial.println("tx-ing");
-  delay(50);
-  Serial.write(array, len);
-  delay(50);
-  m_tx_count++;
-}
