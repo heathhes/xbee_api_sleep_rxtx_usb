@@ -116,6 +116,8 @@ void handle_wireless()
   while(Serial.available())
   {
     rx_array[x] = Serial.read();
+    ss.print(rx_array[x], HEX);
+    ss.print(", ");
     x++;
     new_rx = true;
   }
@@ -132,14 +134,17 @@ void handle_wireless()
     if(rx_data.valid)
     {
       ss.println("Rx'd valid frame, respond = true");
-      print_msg(rx_data);
-      print_array(rx_data.payload, sizeof(rx_data.payload));
+      print_msg(rx_data, sizeof(rx_data.payload));
       m_sleep_now = true;
     }
     else
     {
+      ss.println();
+      ss.println();
       ss.print("RECEIVED INVALID FRAME: ");
       print_array(rx_data.payload, sizeof(rx_data.payload));
+      ss.println();
+      ss.println();
     }
   }
 
@@ -178,7 +183,7 @@ void print_array(uint8_t array[], uint8_t len)
 
 //////////////////////////////////////////////////////////////////////
 
-void print_msg(struct Msg_data msg)
+void print_msg(struct Msg_data msg, uint8_t len_payload)
 {
   ss.print("Address: ");
   ss.println(msg.address, HEX);
@@ -187,4 +192,6 @@ void print_msg(struct Msg_data msg)
   ss.print("Type_id: ");
   ss.println(msg.type_id, HEX);
   ss.print("Payload: ");
+  print_array(msg.payload, len_payload);
+  ss.println();
 }
