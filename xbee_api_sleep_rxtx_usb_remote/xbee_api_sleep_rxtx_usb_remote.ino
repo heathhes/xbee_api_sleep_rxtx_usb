@@ -17,7 +17,7 @@ millisDelay m_send_timer;
 millisDelay m_sleep_timer;
 millisDelay m_system_timer;
 
-SoftwareSerial softSerial(7,8);  //(rx,tx)
+SoftwareSerial ss(7,8);  //(rx,tx)
 
 bool m_sleep_now = true;
 bool m_tx_now = true;
@@ -48,9 +48,9 @@ void setup()
   delay(3000);
 
   Serial.begin(19200);
-  softSerial.begin(9600);    
-  softSerial.print("xbee_api_sleep_txrx_usb_remote : ");
-  softSerial.println(version);
+  ss.begin(19200);
+  ss.print("xbee_api_sleep_txrx_usb_remote : ");
+  ss.println(version);
 
   // pin definitions
   pinMode(WAKE_PIN, INPUT);
@@ -99,7 +99,7 @@ void loop()
   // no successful response, sleep anyway
   if(m_sleep_timer.justFinished())
   {
-    softSerial.println("system timeout, going to sleep");
+    ss.println("system timeout, going to sleep");
     m_sleep_now = true;
   }
  
@@ -109,42 +109,39 @@ void loop()
 
 void handle_wireless()
 { 
-   bool rx_status = false;
-   bool new_rx = false;
-   uint8_t x = 0;
-   uint8_t rx_array[50] = {};
+  bool new_rx = false;
+  uint8_t x = 0;
+  uint8_t rx_array[50] = {};
 
-   while(Serial.available())
-   {
-     rx_array[x] = Serial.read();
-     x++;
-     new_rx = true;
-   } // delay required?
+  while(Serial.available())
+  {
+    rx_array[x] = Serial.read();
+    x++;
+    new_rx = true;
+  }
 
-   uint8_t rx_msg_array[21] = {};
+  if(new_rx)
+  {
+    delay(10);
+    ss.println("");
+    ss.print("Rx'd buffer: ");
+    print_array(rx_array, sizeof(rx_array));
 
-   if(new_rx)
-   {
-     rx_status = m_xbee.Process_received(rx_array,
-                                         sizeof(rx_array),
-                                         rx_msg_array,
-                                         sizeof(rx_msg_array));
-     if(rx_status)
-     {
-       print_array(rx_msg_array, sizeof(rx_msg_array));
-       softSerial.println("Rx'd valid frame, going to sleep");
-       m_sleep_now = true;
-     }
-     else
-     {
-       softSerial.print("Received invalid frame: ");
-       print_array(rx_msg_array, sizeof(rx_msg_array));
-     }
-   }
-
-
-
-
+    struct Msg_data rx_data = m_xbee.Process_received(rx_array,
+                                                      sizeof(rx_array));
+    if(rx_data.valid)
+    {
+      ss.println("Rx'd valid frame, respond = true");
+      print_msg(rx_data);
+      print_array(rx_data.payload, sizeof(rx_data.payload));
+      m_sleep_now = true;
+    }
+    else
+    {
+      ss.print("RECEIVED INVALID FRAME: ");
+      print_array(rx_data.payload, sizeof(rx_data.payload));
+    }
+  }
 
 
   // insert payloads
@@ -154,7 +151,9 @@ void handle_wireless()
   // transmit data, timer has timed out
   if(m_tx_now &&  m_send_timer.justFinished())
   {
-    m_tx_count = m_xbee.Transmit_data(tx_array, sizeof(tx_array), ID::XBEE_1);
+    m_tx_count = m_xbee.Transmit_data(tx_array,
+                                      sizeof(tx_array),
+                                      ID::XBEE_1);
 
     // reset timer
     m_send_timer.repeat();
@@ -171,9 +170,21 @@ void print_array(uint8_t array[], uint8_t len)
 {
   for(int i = 0; i < len; i++)
   {
-    softSerial.print(array[i],HEX);
-    softSerial.print(", ");
+    ss.print(array[i],HEX);
+    ss.print(", ");
   } 
-  softSerial.println();
+  ss.println();
 }
 
+//////////////////////////////////////////////////////////////////////
+
+void print_msg(struct Msg_data msg)
+{
+  ss.print("Address: ");
+  ss.println(msg.address, HEX);
+  ss.print("Count: ");
+  ss.println(msg.count, HEX);
+  ss.print("Type_id: ");
+  ss.println(msg.type_id, HEX);
+  ss.print("Payload: ");
+}
