@@ -1,51 +1,52 @@
 #include <SoftwareSerial.h>
 #include "LowPower.h"
-//#include "setup_remote.h"
 #include "millisDelay.h"
 #include "version.h"
 #include "Xbee_lib.h"
-#include "Xbee_lib_defs.h"
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
-#define RX_MSG_SIZE  21 // payload 5
-#define TX_MSG_SIZE  23 // payload 5
-#define LED_PIN   13
-#define WAKE_PIN  3
+#define LED_PIN     13
+#define WAKE_PIN     3
+#define DS180_TEMP   4
+#define VACUUM      A6
+#define BATTERY     A7
 
-Xbee_lib m_xbee(ID::XBEE_3); // id
+SoftwareSerial ss(7,8);  //(rx,tx)
+Xbee_lib m_xbee;
 
 millisDelay m_send_timer;
 millisDelay m_sleep_timer;
 millisDelay m_system_timer;
 
-SoftwareSerial ss(7,8);  //(rx,tx)
+OneWire oneWire(DS180_TEMP);
+DallasTemperature sensor(&oneWire);
+
 
 bool m_sleep_now = true;
 bool m_tx_now = true;
 uint8_t m_tx_count = 0;
-uint8_t rx_array[21] = {};
-uint8_t tx_array[] = {0x7E, 0x00, 0x13, 0x10, 0x00,
-                      ADDR_B1, ADDR_B2, ADDR_B3,
-                      ADDR_B4, ADDR_B5, ADDR_B6,
-                      ADDR_B7, ADDR_B8,
-                      0xFF, 0xFE, 0x00, 0x00, 0x11,
-                      0x22, 0x23, 0x24, 0x25, 0xD6};
-                      
-//////////////////////////////////////////////////////////////////////
-
-void wakeUp() 
-{  
-  // called after interrupt (no delays or millis)
-  // reset variables after wakeup
-  m_tx_now = true;
-  m_sleep_now = false;
-}  
+uint8_t m_tx_array[] = {0x7E, // SOM
+                        0x00, // length MSB
+                        0x13, // length LSB
+                        0x10, // Frame Type (0x10 Tx request)
+                        0x00, // Frame ID (used for ACK)
+                        ADDR_B1, ADDR_B2, ADDR_B3,
+                        ADDR_B4, ADDR_B5, ADDR_B6,
+                        ADDR_B7, ADDR_B8,
+                        0xFF, // Reserved 1
+                        0xFE, // Reserved 2
+                        0x00, // Broadcast radius
+                        0x00, // Transmit options bit backed, (0xC1)
+                        0x30, 0x31, 0x32, 0x33, 0x34,
+                        0xD6};  // Checksum
 
 //////////////////////////////////////////////////////////////////////
  
 void setup() 
 { 
   // allow time to switch to xbee mode on pcb
-  delay(3000);
+  delay(2000);
 
   Serial.begin(19200);
   ss.begin(19200);
@@ -57,14 +58,27 @@ void setup()
   pinMode(LED_PIN, OUTPUT);
 
   // delay before transmission is sent again (no response)
-  m_send_timer.start(1000);
+  m_send_timer.start(2000);
 
   // sleep after 5 seconds regardless if transmission/response status
   m_sleep_timer.start(5000);
 
-  // slow the tx-ing and handling loop (rx serial always running);
-  m_system_timer.start(100);
+  // slow the tx-ing and rx-ing handling loop
+  m_system_timer.start(25);
+
+  // Start up the library for dallas temp
+  sensor.begin();
 }  
+
+//////////////////////////////////////////////////////////////////////
+
+void wakeUp()
+{
+  // called after interrupt (no delays or millis)
+  // reset variables after wakeup
+  m_tx_now = true;
+  m_sleep_now = false;
+}
 
 //////////////////////////////////////////////////////////////////////
   
@@ -118,22 +132,22 @@ void handle_wireless()
     rx_array[x] = Serial.read();
     ss.print(rx_array[x], HEX);
     ss.print(", ");
+
     x++;
     new_rx = true;
   }
 
   if(new_rx)
   {
-    delay(10);
     ss.println("");
     ss.print("Rx'd buffer: ");
-    print_array(rx_array, sizeof(rx_array));
+    print_array(rx_array, sizeof(rx_array), true);
 
     struct Msg_data rx_data = m_xbee.Process_received(rx_array,
                                                       sizeof(rx_array));
     if(rx_data.valid)
     {
-      ss.println("Rx'd valid frame, respond = true");
+      ss.println("Rx'd valid frame, sleep_now = true");
       print_msg(rx_data, sizeof(rx_data.payload));
       m_sleep_now = true;
     }
@@ -142,26 +156,43 @@ void handle_wireless()
       ss.println();
       ss.println();
       ss.print("RECEIVED INVALID FRAME: ");
-      print_array(rx_data.payload, sizeof(rx_data.payload));
+      print_array(rx_data.payload, sizeof(rx_data.payload), true);
       ss.println();
       ss.println();
     }
   }
 
 
-  // insert payloads
-  tx_array[17] = m_tx_count;
+  // build message, insert payloads
+  m_tx_array[TX::PAYLOAD_CNT] = m_tx_count;
+  m_tx_array[TX::PAYLOAD_ID] = 0xA1;
+
+  analogRead(A2); // throw away
+  uint16_t light = analogRead(A2);
+
+  m_tx_array[TX::PAYLOAD_0] = light/4;
+  m_tx_array[TX::PAYLOAD_0 + 1] = getDallasTemp();
+
+  analogRead(A7);
+  uint16_t battery = analogRead(A7);
+  m_tx_array[TX::PAYLOAD_0 + 2] = battery/4;
 
   
   // transmit data, timer has timed out
   if(m_tx_now &&  m_send_timer.justFinished())
   {
-    m_tx_count = m_xbee.Transmit_data(tx_array,
-                                      sizeof(tx_array),
-                                      ID::XBEE_1);
+    // use enum from transmit status
+    uint8_t tx_ok = m_xbee.Transmit_data(m_tx_array,
+                                         sizeof(m_tx_array),
+                                         ID::XBEE_1);
+    if(tx_ok == 1)
+    {
+      m_tx_count++;
+    }
 
     // reset timer
     m_send_timer.repeat();
+    m_tx_now = false;
   }
 
   // clear the rx array
@@ -171,14 +202,26 @@ void handle_wireless()
 
 //////////////////////////////////////////////////////////////////////
 
-void print_array(uint8_t array[], uint8_t len)
+void print_array(uint8_t array[], uint8_t len, bool hex)
 {
-  for(int i = 0; i < len; i++)
+  if(hex)
   {
-    ss.print(array[i],HEX);
-    ss.print(", ");
-  } 
-  ss.println();
+    for(int i = 0; i < len; i++)
+    {
+      ss.print(array[i],HEX);
+      ss.print(", ");
+    }
+    ss.println();
+  }
+  else
+  {
+    for(int i = 0; i < len; i++)
+    {
+      ss.print(array[i]);
+      ss.print(", ");
+    }
+    ss.println();
+  }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -187,11 +230,31 @@ void print_msg(struct Msg_data msg, uint8_t len_payload)
 {
   ss.print("Address: ");
   ss.println(msg.address, HEX);
+  ss.print("Length: ");
+  ss.println(msg.length, HEX);
   ss.print("Count: ");
   ss.println(msg.count, HEX);
   ss.print("Type_id: ");
   ss.println(msg.type_id, HEX);
   ss.print("Payload: ");
-  print_array(msg.payload, len_payload);
+  print_array(msg.payload, len_payload, false);
   ss.println();
+}
+
+//////////////////////////////////////////////////////////////////////
+
+uint8_t getDallasTemp()
+{
+  delay(10);
+  sensor.requestTemperatures(); // Send the command to get temperatures
+  float tempC = sensor.getTempCByIndex(0);
+  float tempF = (sensor.getTempCByIndex(0) * 9.0 / 5.0) + 32;
+
+  if(tempF < 0)
+  {
+    tempF = 0;
+  }
+  uint8_t temp2dac = tempC * 4; //can only transmit byte so save resolution
+
+  return tempF;
 }
