@@ -138,15 +138,14 @@ void handle_wireless()
 
   analogRead(A2); // throw away
   uint16_t light = analogRead(A2);
-
   m_tx_array[TX::PAYLOAD_0] = light/4;
+
   m_tx_array[TX::PAYLOAD_0 + 1] = getDallasTemp();
 
   analogRead(A7);
   uint16_t battery = analogRead(A7);
   m_tx_array[TX::PAYLOAD_0 + 2] = battery/4;
 
-  
   // transmit data, timer has timed out
   if(m_tx_now &&  m_send_timer.justFinished())
   {
