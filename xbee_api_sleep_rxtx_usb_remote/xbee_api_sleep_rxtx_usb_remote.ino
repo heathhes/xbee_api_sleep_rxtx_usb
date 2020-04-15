@@ -17,7 +17,7 @@ Xbee_lib m_xbee(&ss);
 
 millisDelay m_send_timer;
 millisDelay m_sleep_timer;
-millisDelay m_system_timer;
+millisDelay m_wireless_timer;
 
 OneWire oneWire(DS180_TEMP);
 DallasTemperature sensor(&oneWire);
@@ -51,7 +51,7 @@ void setup()
   m_sleep_timer.start(5000);
 
   // slow the tx-ing and rx-ing handling loop
-  m_system_timer.start(25);
+  m_wireless_timer.start(1);
 
   // Start up the library for dallas temp
   sensor.begin();
@@ -74,40 +74,61 @@ void wakeUp()
   
 void loop() 
 { 
-  // put micro to sleep
-  if(m_sleep_now)
+  handle_sleep(m_sleep_now);
+
+  // slow the wireless loop
+  if(m_wireless_timer.justFinished())
   {
-    digitalWrite(LED_PIN, LOW);
-    
-    // attach external interrupt and then sleep
-    attachInterrupt(digitalPinToInterrupt(WAKE_PIN), wakeUp, RISING);
-    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
-
-    //delay after wakeup
-    delay(100);       
-    digitalWrite(LED_PIN, HIGH);
-    
-    // Disable external pin interrupt on wake up pin.
-    detachInterrupt(digitalPinToInterrupt(WAKE_PIN));
-
-    m_sleep_timer.restart();
-  }
-
-  // after waking up, slow the system loop
-  if(m_system_timer.justFinished())
-  {
-    m_system_timer.repeat();
+    m_wireless_timer.repeat();
     handle_wireless();
   }
   
   // no successful response, sleep anyway
   if(m_sleep_timer.justFinished())
   {
-    ss.println("system timeout, going to sleep");
+    ss.println("wireless timeout, going to sleep");
     m_sleep_now = true;
   }
- 
 } 
+
+//////////////////////////////////////////////////////////////////////
+
+void handle_usb()
+{
+  while(ss.available())
+  {
+    m_xbee.Process_byte(Serial.read());
+  }
+}
+
+void process_usb_byte(uint8_t rx_byte)
+{
+  ss.print(rx_byte);
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void handle_sleep(bool sleep)
+{
+  // put micro to sleep
+  if(sleep)
+  {
+    digitalWrite(LED_PIN, LOW);
+
+    // attach external interrupt and then sleep
+    attachInterrupt(digitalPinToInterrupt(WAKE_PIN), wakeUp, RISING);
+    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+
+    //delay after wakeup
+    delay(100);
+    digitalWrite(LED_PIN, HIGH);
+
+    // Disable external pin interrupt on wake up pin.
+    detachInterrupt(digitalPinToInterrupt(WAKE_PIN));
+
+    m_sleep_timer.restart();
+  }
+}
 
 //////////////////////////////////////////////////////////////////////
 

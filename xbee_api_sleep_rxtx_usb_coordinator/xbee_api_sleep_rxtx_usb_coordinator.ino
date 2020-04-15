@@ -12,7 +12,7 @@
 SoftwareSerial ss(7,8);  // (rx,tx)
 Xbee_lib m_xbee(&ss);
 
-millisDelay m_system_timer;
+millisDelay m_wireless_timer;
 
 OneWire oneWire(DS180_TEMP);
 DallasTemperature sensor(&oneWire);
@@ -38,7 +38,7 @@ void setup()
   pinMode(WAKE_PIN, INPUT);
 
   // delay for handling wireless interface
-  m_system_timer.start(25);
+  m_wireless_timer.start(1);
 
   // callback for when valid data received
   m_xbee.Set_callback(Message_received);
@@ -51,9 +51,9 @@ void setup()
 
 void loop()
 {
-  if(m_system_timer.justFinished())
+  if(m_wireless_timer.justFinished())
   {
-    m_system_timer.repeat();
+    m_wireless_timer.repeat();
     handle_wireless();
   }
 }
