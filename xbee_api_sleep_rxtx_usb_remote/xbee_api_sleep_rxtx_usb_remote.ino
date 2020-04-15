@@ -12,7 +12,7 @@
 #define VACUUM      A6
 #define BATTERY     A7
 
-SoftwareSerial ss(7,8);  //(rx,tx)
+SoftwareSerial ss(7,8);  // (rx,tx)
 Xbee_lib m_xbee(&ss);
 
 millisDelay m_send_timer;
@@ -25,20 +25,6 @@ DallasTemperature sensor(&oneWire);
 bool m_sleep_now = true;
 bool m_tx_now = true;
 uint8_t m_tx_count = 0;
-uint8_t m_tx_array[] = {0x7E, // SOM
-                        0x00, // length MSB
-                        0x13, // length LSB
-                        0x10, // Frame Type (0x10 Tx request)
-                        0x00, // Frame ID (used for ACK)
-                        ADDR_B1, ADDR_B2, ADDR_B3,
-                        ADDR_B4, ADDR_B5, ADDR_B6,
-                        ADDR_B7, ADDR_B8,
-                        0xFF, // Reserved 1
-                        0xFE, // Reserved 2
-                        0x00, // Broadcast radius
-                        0x00, // Transmit options bit backed, (0xC1)
-                        0x30, 0x31, 0x32, 0x33, 0x34,
-                        0xD6};  // Checksum
 
 //////////////////////////////////////////////////////////////////////
  
@@ -133,26 +119,31 @@ void handle_wireless()
   }
 
   // build message, insert payloads
-  m_tx_array[TX::PAYLOAD_CNT] = m_tx_count;
-  m_tx_array[TX::PAYLOAD_ID] = 0xA1;
+  struct Msg_data tx_msg;
+  tx_msg.length = 23;
+  tx_msg.frame_type = 0x10;
+  tx_msg.address = ID::XBEE_1;
+  tx_msg.payload_cnt = m_tx_count;
+  tx_msg.payload_id = 0xA1;
 
+  // light sensor
   analogRead(A2); // throw away
   uint16_t light = analogRead(A2);
-  m_tx_array[TX::PAYLOAD_0] = light/4;
+  tx_msg.payload[0] = light/4;
 
-  m_tx_array[TX::PAYLOAD_0 + 1] = getDallasTemp();
+  // temp sensor
+  tx_msg.payload[1] = getDallasTemp();
 
-  analogRead(A7);
+  // battery
+  analogRead(A7); // throw away
   uint16_t battery = analogRead(A7);
-  m_tx_array[TX::PAYLOAD_0 + 2] = battery/4;
+  tx_msg.payload[2] = battery/4;
 
   // transmit data, timer has timed out
   if(m_tx_now &&  m_send_timer.justFinished())
   {
     // use enum from transmit status
-    uint8_t tx_ok = m_xbee.Transmit_data(m_tx_array,
-                                         sizeof(m_tx_array),
-                                         ID::XBEE_1);
+    uint8_t tx_ok = m_xbee.Transmit_data(tx_msg);
     if(tx_ok == 1)
     {
       m_tx_count++;
@@ -166,10 +157,10 @@ void handle_wireless()
 
 //////////////////////////////////////////////////////////////////////
 
-uint8_t Message_received(const struct Msg_data data)
+uint8_t Message_received(const struct Msg_data rx_data)
 {
   ss.println("Message_received");
-  m_xbee.Print_msg(data, sizeof(data.payload));
+  m_xbee.Print_msg(rx_data);
 
   // received valid response, do stuff and then sleep
   m_sleep_now = true;

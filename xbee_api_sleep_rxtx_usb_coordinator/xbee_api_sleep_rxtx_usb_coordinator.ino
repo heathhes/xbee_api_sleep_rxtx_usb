@@ -2,33 +2,22 @@
 #include "millisDelay.h"
 #include "version.h"
 #include "Xbee_lib.h"
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
-#define LED_PIN   13
-#define WAKE_PIN   3
+#define LED_PIN    13
+#define WAKE_PIN    3
+#define DS180_TEMP  4
 
-SoftwareSerial ss(7,8);  //(rx,tx)
+SoftwareSerial ss(7,8);  // (rx,tx)
 Xbee_lib m_xbee(&ss);
 
 millisDelay m_system_timer;
 
-uint8_t m_dest_addr = 0;
-uint8_t m_tx_count[6] = {};
-uint8_t m_tx_array[] = {0x7E, // SOM
-                        0x00, // length MSB
-                        0x13, // length LSB
-                        0x10, // Frame Type (0x10 Tx request)
-                        0x00, // Frame ID (used for ACK)
-                        ADDR_B1, ADDR_B2, ADDR_B3,
-                        ADDR_B4, ADDR_B5, ADDR_B6,
-                        ADDR_B7, ADDR_B8,
-                        0xFF, // Reserved 1
-                        0xFE, // Reserved 2
-                        0x00, // Broadcast radius
-                        0x00, // Transmit options bit backed, (0xC1)
-                        0x99, 0x88, 0x77, 0x66, 0x55,
-                        0xD6};  // Checksum
+OneWire oneWire(DS180_TEMP);
+DallasTemperature sensor(&oneWire);
 
-
+uint8_t m_tx_count[6] = {}; // number of xbees in network
 
 //////////////////////////////////////////////////////////////////////
 
@@ -53,6 +42,9 @@ void setup()
 
   // callback for when valid data received
   m_xbee.Set_callback(Message_received);
+
+  // Start up the library for dallas temp
+  sensor.begin();
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -78,21 +70,46 @@ void handle_wireless()
 
 //////////////////////////////////////////////////////////////////////
 
-uint8_t Message_received(const struct Msg_data data)
+uint8_t Message_received(const struct Msg_data rx_data)
 {
   ss.println("Message_received");
-  m_xbee.Print_msg(data, sizeof(data.payload));
+  m_xbee.Print_msg(rx_data);
 
-  m_tx_array[17] = m_tx_count[data.address];
+  // build message, insert payloads
+  struct Msg_data tx_msg;
+  tx_msg.length = 23;
+  tx_msg.frame_type = 0x10;
+  tx_msg.address = rx_data.address;
+  tx_msg.payload_cnt = m_tx_count[rx_data.address];
+  tx_msg.payload_id = 0xD1;
+
+  // payload
+  tx_msg.payload[0] = 0x99;
+  tx_msg.payload[1] = 0x88;
+  tx_msg.payload[2] = 0x77;
 
   // use enum from transmit status
-  uint8_t tx_ok = m_xbee.Transmit_data(m_tx_array,
-                                       sizeof(m_tx_array),
-                                       data.address);
+  uint8_t tx_ok = m_xbee.Transmit_data(tx_msg);
   if(tx_ok == 1)
   {
-    m_tx_count[data.address]++;
+    m_tx_count[rx_data.address]++;
   }
 }
 
+//////////////////////////////////////////////////////////////////////
 
+uint8_t getDallasTemp()
+{
+  delay(10);
+  sensor.requestTemperatures(); // Send the command to get temperatures
+  float tempC = sensor.getTempCByIndex(0);
+  float tempF = (sensor.getTempCByIndex(0) * 9.0 / 5.0) + 32;
+
+  if(tempF < 0)
+  {
+    tempF = 0;
+  }
+  uint8_t temp2dac = tempC * 4; //can only transmit byte so save resolution
+
+  return tempF;
+}
