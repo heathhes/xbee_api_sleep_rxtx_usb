@@ -136,7 +136,7 @@ void handle_wireless()
   tx_msg.frame_type = 0x10;
   tx_msg.address = ID::XBEE_1;
   tx_msg.payload_cnt = m_tx_count;
-  tx_msg.payload_id = 0xA1;
+  tx_msg.payload_id = CMD_ID::IO_IN;
 
   // light sensor
   analogRead(A2); // throw away

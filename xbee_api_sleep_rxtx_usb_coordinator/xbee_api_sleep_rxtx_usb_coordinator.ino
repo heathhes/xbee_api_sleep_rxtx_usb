@@ -14,6 +14,7 @@ Xbee_lib m_xbee(&ss);
 
 millisDelay m_wireless_timer;
 millisDelay m_usb_timer;
+millisDelay m_remote_status_timer;
 
 uint8_t m_usb_state = 0;
 uint8_t m_usb_count = 0;
@@ -53,6 +54,9 @@ void setup()
   // delay for handling usb interface
   m_usb_timer.start(1);
 
+  // delay for reporting status
+  m_remote_status_timer.start(5000);
+
   // callback for when valid data received
   m_xbee.Set_callback(Message_received);
 
@@ -75,8 +79,36 @@ void loop()
     m_usb_timer.repeat();
     handle_usb();
   }
+
+  if(m_remote_status_timer.justFinished())
+  {
+    m_remote_status_timer.repeat();
+    handle_remote_status();
+  }
 }
 
+
+void handle_remote_status()
+{
+  ss.println("Handle remote status");
+  for(int i = 0; i < 5; i++)
+  {
+    if(m_rx_msg[i].valid)
+    {
+      ss.print("Remote Address: ");
+      ss.println(m_rx_msg[i].address);
+      ss.print("Light[%]: ");
+      uint8_t light = map(m_rx_msg[i].payload[0], 0, 255, 0, 100);
+      ss.println(light);
+      ss.print("Temperature[F]: ");
+      ss.println(m_rx_msg[i].payload[1]);
+      ss.print("Battery[V]: ");
+      float battery = map(m_rx_msg[i].payload[2], 0, 255, 0, 2.1) * 2;
+      ss.println(battery);
+      ss.println();
+    }
+  }
+}
 
 //////////////////////////////////////////////////////////////////////
 
@@ -168,6 +200,36 @@ uint8_t Message_received(const struct Msg_data rx_data)
   ss.println("Message_received");
   m_xbee.Print_msg(rx_data);
 
+  switch(rx_data.payload_id)
+  {
+    case CMD_ID::NO_ACK :
+      ss.println("Rx'd No Ack");
+      // do nothing, no response
+      break;
+
+    case CMD_ID::ACK :
+      ss.println("Rx'd Ack");
+      // build response
+      break;
+
+    case CMD_ID::IO_IN :
+      ss.println("Rx'd IO in");
+
+      // update rx data container
+      for(int i = 0; i < sizeof(rx_data.payload); i++)
+      {
+        m_rx_msg[rx_data.address] = rx_data;
+      }
+      //build response
+
+      break;
+
+    default :
+      ss.print("Unknown CMD::ID: ");
+      ss.println(rx_data.payload_id);
+  }
+
+
   // build message, insert payloads
   struct Msg_data tx_msg;
   tx_msg.length = 23;
@@ -202,14 +264,12 @@ uint8_t getDallasTemp()
 {
   delay(10);
   sensor.requestTemperatures(); // Send the command to get temperatures
-  float tempC = sensor.getTempCByIndex(0);
   float tempF = (sensor.getTempCByIndex(0) * 9.0 / 5.0) + 32;
 
   if(tempF < 0)
   {
     tempF = 0;
   }
-  uint8_t temp2dac = tempC * 4; //can only transmit byte so save resolution
 
   return tempF;
 }
