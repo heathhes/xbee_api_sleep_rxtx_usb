@@ -5,6 +5,11 @@
 #include "Xbee_lib.h"
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <Streaming.h>
+#include <Vector.h>
+
+Vector<uint8_t> vector;
+uint8_t vector_storage[30];
 
 #define LED_PIN     13
 #define WAKE_PIN     3
@@ -43,6 +48,7 @@ void setup()
   ss.print("xbee_api_sleep_txrx_usb_remote : ");
   ss.println(version);
 
+
   // pin definitions
   pinMode(WAKE_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
@@ -62,6 +68,8 @@ void setup()
 
   // callback for when valid data received
   m_xbee.Set_callback(Message_received);
+
+  vector.setStorage(vector_storage);
 }  
 
 //////////////////////////////////////////////////////////////////////
@@ -142,14 +150,17 @@ void handle_wireless()
   analogRead(A2); // throw away
   uint16_t light = analogRead(A2);
   tx_msg.payload[0] = light/4;
+  tx_msg.payload_v.push_back(light/4);
 
   // temp sensor
   tx_msg.payload[1] = getDallasTemp();
+  tx_msg.payload_v.push_back(getDallasTemp());
 
   // battery
   analogRead(A7); // throw away
   uint16_t battery = analogRead(A7);
   tx_msg.payload[2] = battery/4;
+  tx_msg.payload_v.push_back(battery/4);
 
   // transmit data, timer has timed out
   if(m_tx_now &&  m_send_timer.justFinished())
