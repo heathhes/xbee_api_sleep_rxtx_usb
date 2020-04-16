@@ -9,11 +9,14 @@
 #define LED_PIN     13
 #define WAKE_PIN     3
 #define DS180_TEMP   4
-#define VACUUM      A6
-#define BATTERY     A7
+#define VACUUM      A6   // 20
+#define BATTERY     A7   // 21
+#define OUT_PIN      6
 
 SoftwareSerial ss(7,8);  // (rx,tx)
 Xbee_lib m_xbee(&ss);
+
+struct Msg_data m_rx_msg;
 
 millisDelay m_send_timer;
 millisDelay m_sleep_timer;
@@ -43,12 +46,13 @@ void setup()
   // pin definitions
   pinMode(WAKE_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
+  pinMode(OUT_PIN, OUTPUT); digitalWrite(OUT_PIN, LOW);
 
   // delay before transmission is sent again (no response)
   m_send_timer.start(2000);
 
-  // sleep after 5 seconds regardless if transmission/response status
-  m_sleep_timer.start(5000);
+  // sleep after 10 seconds regardless if transmission/response status
+  m_sleep_timer.start(10000);
 
   // slow the tx-ing and rx-ing handling loop
   m_wireless_timer.start(1);
@@ -93,27 +97,14 @@ void loop()
 
 //////////////////////////////////////////////////////////////////////
 
-void handle_usb()
-{
-  while(ss.available())
-  {
-    m_xbee.Process_byte(Serial.read());
-  }
-}
-
-void process_usb_byte(uint8_t rx_byte)
-{
-  ss.print(rx_byte);
-}
-
-//////////////////////////////////////////////////////////////////////
-
 void handle_sleep(bool sleep)
 {
   // put micro to sleep
   if(sleep)
   {
+    // safe state?
     digitalWrite(LED_PIN, LOW);
+    //digitalWrite(OUT_PIN, LOW);
 
     // attach external interrupt and then sleep
     attachInterrupt(digitalPinToInterrupt(WAKE_PIN), wakeUp, RISING);
@@ -183,8 +174,42 @@ uint8_t Message_received(const struct Msg_data rx_data)
   ss.println("Message_received");
   m_xbee.Print_msg(rx_data);
 
+  switch(rx_data.payload_id)
+  {
+    case CMD_ID::ACK :
+      ss.println("Rx'd Ack");
+      m_sleep_now = true;
+      break;
+
+    case CMD_ID::IO_OUT :
+      ss.println("Rx'd IO out");
+      m_sleep_now = run_outputs(rx_data.payload);   // s3o3611
+      break;
+
+    default :
+      ss.print("Unknown CMD::ID: ");
+      ss.println(rx_data.payload_id);
+      m_sleep_now = true;
+  }
+
   // received valid response, do stuff and then sleep
   m_sleep_now = true;
+}
+
+bool run_outputs(const uint8_t payload[]) // should be constantly run from main loop
+{
+  bool sleep = false;
+  int pin = payload[0];
+  int state = payload[1];
+  int time = payload[2];
+
+  digitalWrite(pin, state);
+  if(time != 0)
+  {
+    delay(time * 1000);
+    digitalWrite(pin, LOW);
+  }
+  return sleep;
 }
 
 //////////////////////////////////////////////////////////////////////
