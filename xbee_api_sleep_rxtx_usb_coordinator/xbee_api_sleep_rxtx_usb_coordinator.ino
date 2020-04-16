@@ -103,11 +103,16 @@ void handle_remote_status()
       ss.print("Temperature[F]: ");
       ss.println(m_rx_msg[i].payload[1]);
       ss.print("Battery[V]: ");
-      float battery = map(m_rx_msg[i].payload[2], 0, 255, 0, 2.1) * 2;
+      float battery = m_rx_msg[i].payload[2] * 8 * 0.003157; // 0.0032258 @ 3.3V
       ss.println(battery);
       ss.println();
     }
   }
+}
+
+float mapf(float x, float in_min, float in_max, float out_min, float out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 //////////////////////////////////////////////////////////////////////

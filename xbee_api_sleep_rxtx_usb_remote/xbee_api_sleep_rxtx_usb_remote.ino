@@ -218,14 +218,11 @@ uint8_t getDallasTemp()
 {
   delay(10);
   sensor.requestTemperatures(); // Send the command to get temperatures
-  float tempC = sensor.getTempCByIndex(0);
   float tempF = (sensor.getTempCByIndex(0) * 9.0 / 5.0) + 32;
 
   if(tempF < 0)
   {
     tempF = 0;
   }
-  uint8_t temp2dac = tempC * 4; //can only transmit byte so save resolution
-
   return tempF;
 }
